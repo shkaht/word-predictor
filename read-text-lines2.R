@@ -111,50 +111,6 @@ save(one.grams,
 
 load("prediction-tables.RData")
 
-nextword <- function(phrase) {
-        
-        phrase <- tokens(phrase) 
-        count.words <- ntoken(phrase)
-        ptable <- data.frame()
-        
-        if(count.words >= 4) {
-                last4 <- tail(phrase$text1, n = 4)
-                last4 <- str_c(last4, collapse = " ")
-                p5 <- filter(five.grams, last4 == V1) 
-                ptable <- bind_rows(ptable, p5)
-        }
-        
-        if(count.words >= 3) {
-                last3 <- tail(phrase$text1, n = 3)
-                last3 <- str_c(last3, collapse = " ")
-                p4 <- filter(four.grams, last3 == V1) 
-                ptable <- bind_rows(ptable, p4)
-        }
-        
-        if(count.words >= 2) {
-                last2 <- tail(phrase$text1, n = 2) %>%
-                        str_c(collapse = " ")
-                p3 <- filter(three.grams, last2 == V1)
-                ptable <- bind_rows(ptable, p3)
-        }
-
-        if(count.words >= 1) {
-                last1 <- tail(phrase$text1, n = 1) 
-                p2 <- filter(two.grams, last1 == V1) 
-                ptable <- bind_rows(ptable, p2)
-        }
-        
-        if(is.na(ptable[1,1] == TRUE)) {
-                p1 <- one.grams %>%
-                        sample_n(1) 
-                ptable <- bind_rows(ptable, p1)
-        }
-        
-        answer <- ptable[1,2]
-        
-        return(answer)
-}
-
 end <- Sys.time()
 
 elapsed <- end - start

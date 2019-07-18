@@ -1,12 +1,3 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(shinythemes)
 library(quanteda)
@@ -66,7 +57,14 @@ ui <- fluidPage(
                for the 5th word.  If there is no match for the last 4 words (or less than 4 words were
                entered) the algorithm will try the same process using 4-grams, and so on. If no matches 
                are found with the entered text and any of the n-grams, one of the 10 most popluar words 
-               will be randomly selected and returned.")
+               will be randomly selected and returned."),
+             br(), 
+             h3("More info"),
+             a("Link to app source code", 
+               href = "https://github.com/shkaht/word-predictor/blob/master/app.R"),
+             br(),
+             a("Link to raw text processing script", 
+               href = "https://github.com/shkaht/word-predictor/blob/master/read-text-lines2.R")
         )
     )
 )
