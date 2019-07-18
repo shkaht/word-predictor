@@ -1,0 +1,12 @@
+name: word-predictor
+title: word-predictor
+username:
+account: shkaht
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1037961
+bundleId: 2242290
+url: https://shkaht.shinyapps.io/word-predictor/
+when: 1563400670.81061
+asMultiple: FALSE
+asStatic: FALSE

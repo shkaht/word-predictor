@@ -1,0 +1,278 @@
+---
+title: "Capstone - milestone report 1"
+author: "Scott Dayer"
+date: "7/5/2019"
+output: html_document
+---
+
+## Executive Summary
+
+This report provides a brief summary of my work completed to date toward creating a natural language processing application that predicts the next word to be typed, given the last word or phrase typed.  Four items are addressed in this report:
+
+1. SwiftKey data is downloaded and loaded into R
+2. Summaries of the data sets
+3. Interesting findings thus far
+4. Plans for creating prediction algorithm and Shiny app
+
+## Loading the data
+
+I read in each of the english text files and sample the data in each to create a smaller set of data to speed processing time during initial exploration and algorithm construction.  These files are loaded into a single corpus using the quanteda package.  
+
+```{r message=FALSE, warning=FALSE, cache=TRUE}
+
+library(quanteda)
+library(readtext)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+
+setwd("C:/Users/207014104/Desktop/Box Sync/Personal/DataScience/capstone/Coursera-SwiftKey/final/en_US")
+
+con.t <- file("en_US.twitter.txt", "r") 
+con.n <- file("en_US.news.txt", "r")
+con.b <- file("en_US.blogs.txt", "r")
+
+#divisor for reduction of lines
+redx <- 20
+
+set.seed(17)
+
+t <- readLines(con.t, skipNul = TRUE)
+size.t <- length(t) / redx 
+twitter <- sample(t, size.t)
+writeLines(twitter, con = "twitter-sized.txt")
+close(con.t)
+
+n <- readLines(con.n, skipNul = TRUE)
+size.n <- length(n) / redx * 4 # take more news since its smaller
+news <- sample(n, size.n)
+writeLines(news, con = "news-sized.txt")
+close(con.n)
+
+b <- readLines(con.b, skipNul = TRUE)
+size.b <- length(b) / redx
+blogs <- sample(b, size.b)
+writeLines(blogs, con = "blogs-sized.txt")
+close(con.b)
+
+corp.all <- corpus(c(twitter, news, blogs))
+
+rm(t, n, b, twitter, news, blogs)
+
+# a smaller corpus combining the samples
+corp <- corpus(readtext("*sized.txt"))
+
+```
+
+## Summary of the data
+
+Prior to cleaning data, here are the raw statistics of the sample:
+
+```{r}
+summary(corp)
+```
+
+Next, the data is cleaned and word-level unigrams, bigrams and trigrams are created. Cleaning consists of removing numbers, symbols, punctuation, urls, twitter handles, hyphens and profanity.  In order to keep this report concise, the cleaning and plotting code is hidden. 
+
+```{r cache = TRUE, echo = FALSE}
+
+#get a list of profane language to remove 
+
+profanity.url <- "https://raw.githubusercontent.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en"
+download.file(profanity.url, destfile="profanity.csv", mode="wb")
+profanity <- read.csv("profanity.csv", header = FALSE, stringsAsFactors = FALSE)
+
+# create the clean n-grams
+
+one.grams <- dfm(corp, 
+                tolower = TRUE,
+                what = "word",
+                remove_numbers = TRUE, 
+                remove_punct = TRUE, 
+                remove_symbols = TRUE, 
+                remove_twitter = TRUE, 
+                remove_hyphens = FALSE,
+                remove_url = TRUE,
+                remove = profanity$V1,
+                ngrams = 1)
+
+two.grams <- dfm(corp, 
+                 tolower = TRUE,
+                 what = "word",
+                 remove_numbers = TRUE, 
+                 remove_punct = TRUE, 
+                 remove_symbols = TRUE, 
+                 remove_twitter = TRUE, 
+                 remove_hyphens = FALSE,
+                 remove_url = TRUE,
+                 remove = profanity$V1,
+                 ngrams = 2)
+
+three.grams <- dfm(corp, 
+                 tolower = TRUE,
+                 what = "word",
+                 remove_numbers = TRUE, 
+                 remove_punct = TRUE, 
+                 remove_symbols = TRUE, 
+                 remove_twitter = TRUE, 
+                 remove_hyphens = FALSE,
+                 remove_url = TRUE,
+                 remove = profanity$V1,
+                 ngrams = 3)
+
+# create frequency data tables from the n-gram document feature matrices
+
+onegramstats <- textstat_frequency(one.grams)
+twogramstats <- textstat_frequency(two.grams)
+threegramstats <- textstat_frequency(three.grams)
+
+onegramstats.sep <- textstat_frequency(one.grams, groups = 1:3)
+
+```
+
+Here is a histogram of the number of appearances of individual words.  It is apparent that most words appear less than 25 times, and the vast majority of unique words only appear 1 or 2 times.   
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+my_palette <- c("#009E73", "#0072B2", "#D55E00", "#CC79A7", "#E69F00")
+
+#vast majority of words only appear 1 or 2 times
+hist <- ggplot(
+        onegramstats.sep[onegramstats.sep$frequency < 50],
+        aes(frequency, fill = group)
+        ) +
+        geom_histogram(position = "identity", binwidth =  1, alpha = .4) +
+        theme_minimal() +
+        labs(x = "# times a word appeared", 
+             y = "# of different words", 
+             title = "Histogram of words appearance frequency") +
+        scale_fill_discrete(name = "Document", 
+                            labels = c("blogs", "news", "twitter")) +
+        scale_fill_manual(values = my_palette) 
+
+plot(hist)
+
+```
+
+However, there are a small subset of words the appear very often, and account for a very large portion of the overal corpus.  Here are the top 10 for each of the sampled documents and their number of appearances:
+
+```{r message=FALSE, warning=FALSE, echo = FALSE}
+top10s <- onegramstats.sep %>%
+        mutate(group = str_replace(group, "1", "blogs")) %>%
+        mutate(group = str_replace(group, "2", "news")) %>%
+        mutate(group = str_replace(group, "3", "twitter")) %>%
+        group_by(group) %>% 
+        slice(1:10)
+        
+top10.blogs <- ggplot(top10s[top10s$group == "blogs", ], aes(x = reorder(feature, frequency), frequency)) +
+        geom_col(fill = "#009E73", alpha = .6) +
+        coord_flip() +
+        theme_minimal() +
+        labs(y = "blogs", 
+             x = "", 
+             title = "Top 10 most frequent words for each type") 
+
+top10.news <- ggplot(top10s[top10s$group == "news", ], aes(x = reorder(feature, frequency), frequency)) +
+        geom_col(fill = "#0072B2", alpha = .6) +
+        coord_flip() +
+        theme_minimal() +
+        labs(y = "news", 
+             x = "", 
+             title = "") 
+
+top10.twitter <- ggplot(top10s[top10s$group == "twitter", ], aes(x = reorder(feature, frequency), frequency)) +
+        geom_col(fill = "#D55E00", alpha = .6) +
+        coord_flip() +
+        theme_minimal() +
+        labs(y = "twitter", 
+             x = "", 
+             title = "")
+
+grid.arrange(top10.blogs, top10.news, top10.twitter, nrow = 1)
+
+```
+
+The top 10 words in each document appear very frequently, and in similar order with a few small variations.  The most frequent words are not suprising, and not especially interesting either.  
+
+## Interesting findings
+
+The top 10 bigram words also appear very frequently, although somewhat more distributed in terms of totals for each bigram than the top unigrams. However, it is notable that 7 of the top 10 second words are "the". 
+
+```{r message=FALSE, warning=FALSE, echo = FALSE}
+top10bi <- twogramstats %>%
+        slice(1:10)
+        
+top10bi.plot <- ggplot(top10bi, aes(x = reorder(feature, frequency), frequency)) +
+        geom_col(alpha = .6) +
+        coord_flip() +
+        theme_minimal() +
+        labs(y = "all types", 
+             x = "bigram", 
+             title = "Top 10 most frequent two-word phrases") 
+
+plot(top10bi.plot)
+
+```
+
+Finally, I provide two plots that identify the number of unique words at which 50% and 90% of the total sample of unigrams and bigrams would be covered. 
+
+```{r message=FALSE, warning=FALSE, echo = FALSE}
+
+onegram.table <- onegramstats %>%
+        group_by(group) %>%
+        mutate(percent = frequency/sum(frequency)) %>%
+        mutate(cumulative = cumsum(frequency)) %>%
+        mutate(cum.coverage = cumulative / sum(frequency))
+
+twogram.table <- twogramstats %>%
+        mutate(percent = frequency/sum(frequency)) %>%
+        mutate(cumulative = cumsum(frequency)) %>%
+        mutate(cum.coverage = cumulative / sum(frequency))
+
+threegram.table <- threegramstats %>%
+        mutate(percent = frequency/sum(frequency)) %>%
+        mutate(cumulative = cumsum(frequency)) %>%
+        mutate(cum.coverage = cumulative / sum(frequency))
+
+coverage.plot <- ggplot(onegram.table, 
+                  aes(rank, 
+                      cum.coverage)) +
+        geom_step(direction = "hv", size = 1.25, color = "#CC79A7") +
+        geom_hline(yintercept = .5) +
+        geom_hline(yintercept = .9) +
+        annotate("text", x=10, y = .53, label = "50% coverage") +
+        annotate("text", x=500, y = .93, label = "90% coverage") +
+        scale_x_log10() +
+        theme_minimal() +
+        labs(x = "# of unique words (log scale)", 
+             y = "% coverage", 
+             title = "% coverage vs. number of unique words")
+
+coverage.plot2 <- ggplot(twogram.table, 
+                  aes(rank, 
+                      cum.coverage,)) +
+        geom_step(direction = "hv", size = 1.25, color = "#E69F00") +
+        geom_hline(yintercept = .5) +
+        geom_hline(yintercept = .9) +
+        annotate("text", x=10, y = .53, label = "50% coverage") +
+        annotate("text", x=500, y = .93, label = "90% coverage") +
+        scale_x_log10() +
+        theme_minimal() +
+        labs(x = "# of unique words (log scale)", 
+             y = "% coverage", 
+             title = "% coverage vs. number of unique bigrams")
+        
+plot(coverage.plot)
+
+plot(coverage.plot2)
+
+```
+
+## Plans for algorithm and app
+
+Going forward, I plan to build an algorithm and create a shiny app that predicts the next word based on a user-provided word or phrase.  Two key tradeoffs to consider are processing time, and total coverage.  
+
+Given the above analysis, it appears that the total dictionary from which unigrams and bigrams will be retrieved can be reduced and still maintain a high level of coverage, instead of including all words in the sample.  
+
+In order to achieve the highest level of coverage, my alogirthm will consider the previous 3 words and return the most frequent last word from a four-gram given the first three words.  If there is not history for those three words, it will back off to 2 words and consider the most frequeny trigram starting with those 2.  If no matches, it will consider the 2nd word of a bigram.  I look forward to tuning this model for performance and accuracy and building the application.   
+
