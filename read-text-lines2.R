@@ -109,7 +109,21 @@ save(one.grams,
      five.grams, 
      file = "prediction-tables.RData")
 
+setwd("C:/Users/207014104/Desktop/Box Sync/Personal/DataScience/capstone/next-word-prediction-app/data")
+
 load("prediction-tables.RData")
+
+
+row5 <- tibble(ngrams = "five.grams", `unique n-1 predictions` = nrow(five.grams))
+row4 <- tibble(ngrams = "four.grams", `unique n-1 predictions` =  nrow(four.grams))
+row3 <- tibble(ngrams = "three.grams", `unique n-1 predictions` =  nrow(three.grams))
+row2 <- tibble(ngrams = "two.grams", `unique n-1 predictions` =  nrow(two.grams))
+row1 <- tibble(ngrams = "one.grams", `unique n-1 predictions` =  nrow(one.grams))
+ngrams <- bind_rows(row5, row4, row3, row2, row1)
+kable(ngrams)
+
+
+
 
 end <- Sys.time()
 
