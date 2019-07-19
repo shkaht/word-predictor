@@ -1,0 +1,5 @@
+base
+dplyr
+knitr
+kableExtra
+quanteda

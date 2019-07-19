@@ -60,10 +60,13 @@ ui <- fluidPage(
                will be randomly selected and returned."),
              br(), 
              h3("More info"),
-             a("Link to app source code", 
+             a("app presentation",
+               href = "http://rpubs.com/shkaaht/513706"),
+             br(),
+             a("app source code", 
                href = "https://github.com/shkaht/word-predictor/blob/master/app.R"),
              br(),
-             a("Link to raw text processing script", 
+             a("raw text processing script", 
                href = "https://github.com/shkaht/word-predictor/blob/master/read-text-lines2.R")
         )
     )
